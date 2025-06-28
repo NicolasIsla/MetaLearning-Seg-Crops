@@ -18,7 +18,7 @@ For the moment, we support the following **models**:
 |:-----------:|:-----:|:------:|:--------:|
 |  [SSL4EOS12](https://arxiv.org/abs/2211.07044)  | SSL4EO-S12: A Large-Scale Multi-Modal, Multi-Temporal <br> Dataset for Self-Supervised Learning in Earth Observation      | [link](https://github.com/zhu-xlab/SSL4EO-S12) | DINO|
 |  [CROMA](https://arxiv.org/pdf/2311.00566)      | CROMA: Remote Sensing Representations with Contrastive Radar-Optical Masked Autoencoders  | [link](https://github.com/antofuller/CROMA) | Contrastive Learning, MAE |
-|  [U-TAE](https://arxiv.org/abs/2107.07933) | Panoptic Segmentation of Satellite Image Time Series with Convolutional Temporal Attention Networks    | [link](https://github.com/VSainteuf/utae-paps) | U-Net |
+|  [U-TAE](https://arxiv.org/abs/2107.07933) | Panoptic Segmentation of Satellite Image Time Series with Convolutional Temporal Attention Networks    | [link](https://github.com/VSainteuf/utae-paps) | U-Net + Time-Attention Encoding |
 
 And the following **datasets**:
 
@@ -28,7 +28,7 @@ And the following **datasets**:
 
 The repository supports Multi-Temporal Semantic Segmentation using geospatial foundation models.
 
-It is also possible to train a [supervised baselines](#-fully-supervised-baseline), based on UTAE.
+It is also possible to train a [supervised baseline](#-fully-supervised-baseline), based on UTAE.
 
 ## 🛠️ Setup
 Clone the repository:
@@ -40,10 +40,10 @@ cd ShapingFT
 **Dependencies**
 
 ```
- conda env create -n ShapingFT python=3.11
- conda activate ShapingFT
- cd ShapingFT
- pip install -r requirements.txt
+conda env create -n ShapingFT python=3.11
+conda activate ShapingFT
+cd ShapingFT
+pip install -r requirements.txt
 ```
 
 ## 🏋️ Training
@@ -65,12 +65,11 @@ Please note:
  - To use more gpus or nodes, set `--nnodes` and `--nproc_per_node` correspondingly. Please refer to the [torchrun doc](https://pytorch.org/docs/stable/elastic/run.html).
 
 ```
- export PATH="$HOME/miniconda3/bin:$PATH"
- source "$HOME/miniconda3/etc/profile.d/conda.sh"
- conda activate ShapingFT
- export PYTHONPATH=$HOME/ShapingFT:$PYTHONPATH
-
- cd $HOME/ShapingFT
+export PATH="$HOME/miniconda3/bin:$PATH"
+source "$HOME/miniconda3/etc/profile.d/conda.sh"
+conda activate ShapingFT
+export PYTHONPATH=$HOME/ShapingFT:$PYTHONPATH
+cd $HOME/ShapingFT
 ```
 
 ### 💻 Decoder Finetuning
