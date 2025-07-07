@@ -18,6 +18,7 @@ data/*
 data
 pretrained_models
 
+**/.env
 .vscode
 .idea
 *.ipynb
