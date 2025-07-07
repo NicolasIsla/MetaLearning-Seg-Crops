@@ -1,0 +1,7 @@
+tile: "T01CCV"
+start_date: "2024-01-01"
+end_date: "2024-04-01"
+n: 3
+base_path: "data/processed"
+user: "nicolas.isla@ug.uchile.cl"
+password: "??"
