@@ -109,6 +109,7 @@ def main(cfg: DictConfig):
     date_ranges = generate_date_pairs(cfg.start_date, cfg.end_date, cfg.n)
     for start, end in date_ranges:
         download_and_process(cfg.tile, start, end, cfg.base_path, cfg.user, cfg.password)
+        print(f"Processed {cfg.tile} from {start} to {end}")
 
 if __name__ == "__main__":
     main()
