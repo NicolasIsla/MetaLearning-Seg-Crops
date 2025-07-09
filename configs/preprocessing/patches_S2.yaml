@@ -1,0 +1,22 @@
+# El programa presupone la existencia del archivo `gsa_2022_selectedtiles.gpkg
+# en `in_path` y que los productos a procesar están guardados en un 
+# directorio `products` dentro de `in_path`.
+tile: "T31TBF"
+in_path: "" # dirección del directorio con los datos a procesar.
+out_path: "" # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato PASTIS
+patch_size: 256 
+grid_padding: 1 
+verbose: False
+user: "f.maldonado@ug.uchile.cl"
+password: ""
+
+# 31TBF
+# 29TNF
+# 30UXU
+# 32TPP
+# 32UMC
+# 29UNU
+# 33TVN
+# 31UFU
+# 35TMH
+# 32VNH
