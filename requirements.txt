@@ -20,3 +20,8 @@ pytest
 yacs
 wandb
 hydra-core
+rasterio
+requests
+geopandas
+gdal
+pyproj
