@@ -6,6 +6,7 @@
 multirun/
 
 logs/
+jupyter/
 work-dir/
 outputs/
 old_files/

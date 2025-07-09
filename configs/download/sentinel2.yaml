@@ -1,0 +1,18 @@
+tile: "T31TBF"
+start_date: "2021-10-01"
+end_date: "2022-10-01"
+n: 60
+base_path: "data/processed"
+user: "nicolas.isla@ug.uchile.cl"
+password: "??"
+
+# 31TBF
+# 29TNF
+# 30UXU
+# 32TPP
+# 32UMC
+# 29UNU
+# 33TVN
+# 31UFU
+# 35TMH
+# 32VNH
