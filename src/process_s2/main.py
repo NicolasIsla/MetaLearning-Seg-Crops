@@ -39,6 +39,7 @@ def process_tile(
     labels_path,
     s2_out_path,
     annotations_out_path,
+    metadata_path,
     patch_size,
     grid_padding,
     verbose=False,
@@ -124,16 +125,17 @@ def process_tile(
 
 
 
-@hydra.main(version_base=None, config_path="../../configs/download", config_name="patches_S2")
-def main(cfg: DictConfig):
+def main():
 
+    load_dotenv()
     # se definen las direcciones de los archivos a trabajar
-    in_path = Path(cfg.in_path) # dirección del directorio con los datos a procesar.
+    in_path = Path(os.getenv("INPUT_DATA_PATH")) # dirección del directorio con los datos a procesar.
+    print(in_path)
     s2_path = in_path / "products"
     labels_path = in_path / "gsa_2022_selectedtiles.gpkg"
     assert labels_path.exists(), "No existe archivo con labels"
 
-    out_path = Path(cfg.out_path) # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato de https://huggingface.co/datasets/IGNF/PASTIS-HD/tree/main.
+    out_path = Path(os.getenv("OUTPUT_DATA_PATH")) # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato de https://huggingface.co/datasets/IGNF/PASTIS-HD/tree/main.
     metadata_path = out_path / "metadata.geojson" #dirección de la metadata producida en el procesamiento.
     s2_out_path = out_path / "DATA_S2" #dirección de los tensores de imágenes 4D producidos.
     annotations_out_path = out_path / "ANNOTATIONS" #dirección de las matrices 2D con los labels producidos.
@@ -149,15 +151,16 @@ def main(cfg: DictConfig):
     )
 
     process_tile(
-        cfg.tile,
+        "31TBF",
         class_mapping,
         s2_path,
         labels_path,
         s2_out_path,
         annotations_out_path,
-        cfg.patch_size,
-        cfg.grid_padding,
-        verbose=cfg.verbose,
+        metadata_path,
+        patch_size=256,
+        grid_padding=1,
+        verbose=True,
     )
 
 if __name__ == "__main__":
