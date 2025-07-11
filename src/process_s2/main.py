@@ -135,7 +135,7 @@ def main(cfg: DictConfig):
     assert labels_path.exists(), "No existe archivo con labels"
 
     out_path = Path(cfg.out_path) # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato de https://huggingface.co/datasets/IGNF/PASTIS-HD/tree/main.
-    metadata_path = out_path / "metadata.geojson" #dirección de la metadata producida en el procesamiento.
+    metadata_path = out_path / f"metadata_{cfg.tile}.geojson" #dirección de la metadata producida en el procesamiento.
     s2_out_path = out_path / "DATA_S2" #dirección de los tensores de imágenes 4D producidos.
     annotations_out_path = out_path / "ANNOTATIONS" #dirección de las matrices 2D con los labels producidos.
     for path in [s2_out_path, annotations_out_path]:
