@@ -6,6 +6,7 @@ import geopandas as gpd
 import rasterio
 from rasterio import features
 from shapely.geometry import box
+import re
 
 class RasterData:
     '''
@@ -65,10 +66,11 @@ def path2band(path: Path):
     return str(path).split("/")[-1].split("_")[-2]
 
 def path2date(path):
-    '''
-    Entrega el datetime asociado a un producto Sentinel-2 a partir del path a su directorio.
-    '''
-    return pd.to_datetime(str(path).split("/")[-1].split("_")[2][:8])
+    filename = path.name
+    matches = re.findall(r"\d{8}", filename)
+    if matches:
+        return pd.to_datetime(matches[0], format="%Y%m%d")
+    raise ValueError(f"No se encontró fecha válida en el nombre del archivo: {filename}")
 
 def path2processn(path: Path):
     '''
@@ -98,21 +100,21 @@ def get_crs(products_paths):
 
 
 # Para trabajar patches
-def patch_coors(n: int, patch_size=256, array_size=1830):
+def patch_coors(n: int, patch_size=256, array_size=10980, padding=1):
     '''
     Retorna las coordenadas del punto superior izquierdo del patch n-ésimo.
     Supone que todos los productos son de igual tamaño.
     '''
-    lim = patch_size *(array_size // patch_size +1 )
-    x = (n * patch_size) % lim
-    if ((n+1) * patch_size) % lim == 0:# Condición último patch
-        x = array_size - patch_size
+    patch_size1 = patch_size + padding
+    lim = patch_size1 *(array_size // patch_size1 +1 )
+    x = (n * patch_size1) % lim
+    if ((n+1) * patch_size1) % lim == 0:# Condición último patch
+        x = array_size - (patch_size)
 
-    y= ((n * patch_size) // lim) * patch_size
-    if ((n * patch_size) // lim) * patch_size + patch_size > array_size:# Condición último patch
-        y = array_size - patch_size
+    y= ((n * patch_size1) // lim) * patch_size1
+    if y + patch_size > array_size:# Condición último patch
+        y = array_size - (patch_size)
     return (x,y)
-
 
 
 def get_labels_in_tile(labels_path: Path, tile_name: str, class_mapping: dict, crs) -> gpd.GeoDataFrame:
@@ -123,78 +125,67 @@ def get_labels_in_tile(labels_path: Path, tile_name: str, class_mapping: dict, c
     return (
         gpd.read_file(
             labels_path,
-            where=f"name='{tile_name}'",
+            where=f"name='{tile_name[1:]}'",
         )
         .to_crs(crs)
         .assign(polygon=lambda df: df.geometry.map(lambda x: x.geoms[0]))
         .assign(crop_class=lambda df: df.hcat4_code.map(class_mapping))
     )
 
-
-def black_patches_filter(
-        patch_tensor:np.ndarray,
-        raster_data,
-        threshold=0.2
-) -> np.ndarray | RasterData:
-    '''
-    Función que dado un tensor ya armado y su objeto rater_data,
-    excluye las fechas en las que el porcentaje de valores nulos en el
-    total de bandas es menor a threshold.
-    '''
-    dates = raster_data.dates
-    process_nums = raster_data.process_nums
-
-    filter_df = (
-        pd.DataFrame(
-            data=[
-                ( i, date, processn, (patch_tensor[i,:,:,:]==0).sum()/ patch_tensor[i,:,:,:].size)
-                for i, (date, processn) in enumerate(zip(dates, process_nums))
-                ],
-            columns=["i", "date", "processn", "null_percent"],
-        )
-        .query(f"null_percent<{threshold}")
-        )
-
-    filtered_patch = patch_tensor[filter_df.i, :, :,:]
-    filtered_dates = filter_df.date
-    filtered_process_nums = filter_df.processn
-    raster_data.set_dates(filtered_dates)
-    raster_data.set_process_nums(filtered_process_nums)
-    return filtered_patch, raster_data
-
 def get_patch_rasterio(
         raster_reader:rasterio.io.DatasetReader,
-        n: int, patch_size=256, get_data=False
+        n: int, patch_size=256, padding=1,
+        get_data=False
 )-> np.ndarray | RasterData :
     '''
     Retorna el patch n-ésimo a partir de un Dataset Reader de rasterio
     '''
     array_size = raster_reader.shape[0]
 
-    x_patch, y_patch = patch_coors(n, patch_size, array_size)
+    x_patch, y_patch = patch_coors(n, patch_size, array_size, padding)
     window = rasterio.windows.Window.from_slices(
-            cols=slice(x_patch, x_patch + 256),
-            rows=slice(y_patch, y_patch + 256),
+            cols=slice(x_patch, x_patch + patch_size),
+            rows=slice(y_patch, y_patch + patch_size),
         )
     if get_data:
         return raster_reader.read( 1, window=window), RasterData(raster_reader, window)
     else:
         return raster_reader.read( 1, window=window)
 
-def create_patch_tensor_rasterio(products_paths: Path, patch_n: int) -> np.ndarray | RasterData :
+def create_patch_tensor_rasterio(
+        products_paths: Path,
+        patch_n: int,
+        black_patch_threshold: float = 0.2,
+        patch_size: int=256,
+        padding: int=1,
+    ) -> np.ndarray | RasterData :
     '''
     Retorna tupla (tensor, RasterData) con tensor del parche completo.
     Recibe un iterable con los paths de todos los productos del tile y el número de patch deseado.
     '''
     frames = []
+    dates = []
+    processnums = []
+
     #Se ordenan los path de productos por fecha
-    dates, processnums, sorted_paths = (lambda df: (df.date, df.processn, df.path))(
-            pd.DataFrame(
-                [(path2date(path), path2processn(path),  path)  for path in products_paths],
-                columns = ["date", "processn", "path"] 
-                )
-            .sort_values(by="date")
-            )
+    
+    valid_entries = []
+    for path in products_paths:
+        try:
+            date = path2date(path)  # aplica a la carpeta de producto
+            valid_entries.append((date, path))
+        except Exception as e:
+            print(f"[IGNORADO - sin fecha] {path} → {e}")
+
+
+    if len(valid_entries) == 0:
+        raise RuntimeError("No hay productos válidos con fechas para procesar este tile.")
+
+    sorted_paths = (
+        pd.DataFrame(valid_entries, columns=["date", "path"])
+        .sort_values(by="date")
+        .path
+    )
 
     for product_path in sorted_paths:
         band_arrays = []
@@ -202,24 +193,31 @@ def create_patch_tensor_rasterio(products_paths: Path, patch_n: int) -> np.ndarr
         for band_path in get_band_paths(product_path):
             with rasterio.open(band_path) as src:
                 if i==0:
-                    band_raster, patch_data = get_patch_rasterio(src, patch_n, get_data=True)
+                    band_raster, patch_data = get_patch_rasterio(
+                        src, patch_n,  padding=padding, patch_size=patch_size,
+                        get_data=True,
+                    )
                     i+=1
                 else:
-                    band_raster = get_patch_rasterio(src, patch_n)
+                    band_raster = get_patch_rasterio(
+                        src, patch_n,  padding=padding, patch_size=patch_size,
+                    )
             band_arrays.append(band_raster)
-        if len(band_arrays) == 12:
+        if len(band_arrays) != 12:
+            print(f"PRODUCTO NO TIENE LAS 12 BANDAS: {product_path} ")
+        else: 
             stack = np.stack(band_arrays, axis=0)  # (bands, N, N)
-            frames.append(stack)
-        else: print(f"PRODUCTO NO TIENE LAS 12 BANDAS: {product_path} ")
+            black_patch_condition = ((stack==0).sum()/ stack.size) < black_patch_threshold
+            if black_patch_condition:
+                frames.append(stack)
+                dates.append(path2date(product_path))
+                processnums.append(path2processn(product_path))
     tensor_final = np.stack(frames, axis=0)
     patch_data.set_dates(dates)
     patch_data.set_process_nums(processnums)
 
-    tensor_final, patch_data = black_patches_filter(
-        patch_tensor = tensor_final,
-        raster_data = patch_data,
-    )
     return tensor_final, patch_data  # (temporal, bands, N, N)
+
 
 
 def get_annotation_raster(patch_data: RasterData, labels_gdf: gpd.GeoDataFrame) -> np.ndarray:
@@ -260,21 +258,20 @@ def update_metadata_file(new_rows, path, crs):
 def get_id(tile_name: str, patch_n: int):
     array_size = 10980
     tiles = [
-        "31TBF",
-        "29TNF",
-        "30UXU",
-        "32TPP",
-        "32UMC",
-        "29UNU",
-        "33TVN",
-        "31UFU",
-        "35TMH",
-        "32VNH",
+        "T31TBF",
+        "T29TNF",
+        "T30UXU",
+        "T32TPP",
+        "T32UMC",
+        "T29UNU",
+        "T33TVN",
+        "T31UFU",
+        "T35TMH",
+        "T32VNH",
     ]
     tile_map = {tile: i for i, tile in enumerate(tiles)}
     patchesxtile = (array_size//256 + 1)**2
-    total_n_patches = patchesxtile * len(tiles)
-    id = (tile_map[tile_name] * patchesxtile) + patch_n
+    id = tile_map[tile_name] * 10**4 +  patch_n
 
     assert patch_n < patchesxtile, "número de patch no válido"
     assert tile_name in tiles, "tile no válido"
@@ -288,21 +285,21 @@ def which_patch(id:str):
     '''
     array_size = 10980
     tiles = [
-        "31TBF",
-        "29TNF",
-        "30UXU",
-        "32TPP",
-        "32UMC",
-        "29UNU",
-        "33TVN",
-        "31UFU",
-        "35TMH",
-        "32VNH",
+        "T31TBF",
+        "T29TNF",
+        "T30UXU",
+        "T32TPP",
+        "T32UMC",
+        "T29UNU",
+        "T33TVN",
+        "T31UFU",
+        "T35TMH",
+        "T32VNH",
     ]
     patchesxtile = (array_size//256 + 1)**2
 
-    tile_name = tiles[id//patchesxtile]
-    patch_n = id%patchesxtile
+    tile_name = tiles[id//(10**4)]
+    patch_n = id%(10**4)
     print(f"El id {id} está asocidado al patch {patch_n} del tile {tile_name}.")
     return tile_name, patch_n
 
@@ -356,7 +353,7 @@ def create_patch_tensor_xarray(products_paths, patch_n):
         for product_path in products_paths:
             multiband_tensors.append(
                 xr.concat([
-                    get_patch(
+                    get_patch_xarray(
                         xr.open_dataset(band_path, engine="rasterio", band_as_variable=True)
                         #.drop_dims("band")
                         .assign(band=path2band(band_path)).set_coords("band")
