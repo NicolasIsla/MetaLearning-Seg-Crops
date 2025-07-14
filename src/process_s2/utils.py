@@ -6,6 +6,7 @@ import geopandas as gpd
 import rasterio
 from rasterio import features
 from shapely.geometry import box
+import re
 
 class RasterData:
     '''
@@ -65,10 +66,11 @@ def path2band(path: Path):
     return str(path).split("/")[-1].split("_")[-2]
 
 def path2date(path):
-    '''
-    Entrega el datetime asociado a un producto Sentinel-2 a partir del path a su directorio.
-    '''
-    return pd.to_datetime(str(path).split("/")[-1].split("_")[2][:8])
+    filename = path.name
+    matches = re.findall(r"\d{8}", filename)
+    if matches:
+        return pd.to_datetime(matches[0], format="%Y%m%d")
+    raise ValueError(f"No se encontró fecha válida en el nombre del archivo: {filename}")
 
 def path2processn(path: Path):
     '''
@@ -123,7 +125,7 @@ def get_labels_in_tile(labels_path: Path, tile_name: str, class_mapping: dict, c
     return (
         gpd.read_file(
             labels_path,
-            where=f"name='{tile_name}'",
+            where=f"name='{tile_name[1:]}'",
         )
         .to_crs(crs)
         .assign(polygon=lambda df: df.geometry.map(lambda x: x.geoms[0]))
@@ -166,14 +168,24 @@ def create_patch_tensor_rasterio(
     processnums = []
 
     #Se ordenan los path de productos por fecha
+    
+    valid_entries = []
+    for path in products_paths:
+        try:
+            date = path2date(path)  # aplica a la carpeta de producto
+            valid_entries.append((date, path))
+        except Exception as e:
+            print(f"[IGNORADO - sin fecha] {path} → {e}")
+
+
+    if len(valid_entries) == 0:
+        raise RuntimeError("No hay productos válidos con fechas para procesar este tile.")
+
     sorted_paths = (
-            pd.DataFrame(
-                [(path2date(path),  path)  for path in products_paths],
-                columns = ["date", "path"] 
-                )
-            .sort_values(by="date")
-            .path
-            )
+        pd.DataFrame(valid_entries, columns=["date", "path"])
+        .sort_values(by="date")
+        .path
+    )
 
     for product_path in sorted_paths:
         band_arrays = []
@@ -246,16 +258,16 @@ def update_metadata_file(new_rows, path, crs):
 def get_id(tile_name: str, patch_n: int):
     array_size = 10980
     tiles = [
-        "31TBF",
-        "29TNF",
-        "30UXU",
-        "32TPP",
-        "32UMC",
-        "29UNU",
-        "33TVN",
-        "31UFU",
-        "35TMH",
-        "32VNH",
+        "T31TBF",
+        "T29TNF",
+        "T30UXU",
+        "T32TPP",
+        "T32UMC",
+        "T29UNU",
+        "T33TVN",
+        "T31UFU",
+        "T35TMH",
+        "T32VNH",
     ]
     tile_map = {tile: i for i, tile in enumerate(tiles)}
     patchesxtile = (array_size//256 + 1)**2
@@ -273,16 +285,16 @@ def which_patch(id:str):
     '''
     array_size = 10980
     tiles = [
-        "31TBF",
-        "29TNF",
-        "30UXU",
-        "32TPP",
-        "32UMC",
-        "29UNU",
-        "33TVN",
-        "31UFU",
-        "35TMH",
-        "32VNH",
+        "T31TBF",
+        "T29TNF",
+        "T30UXU",
+        "T32TPP",
+        "T32UMC",
+        "T29UNU",
+        "T33TVN",
+        "T31UFU",
+        "T35TMH",
+        "T32VNH",
     ]
     patchesxtile = (array_size//256 + 1)**2
 

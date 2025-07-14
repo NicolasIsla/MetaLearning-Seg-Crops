@@ -2,10 +2,10 @@
 # en `in_path` y que los productos a procesar están guardados en un 
 # directorio `products` dentro de `in_path`.
 tile: "T31TBF"
-in_path: "" # dirección del directorio con los datos a procesar.
-out_path: "" # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato PASTIS
+in_path: "D:/datos/europa/raw/products" # dirección del directorio con los datos a procesar.
+out_path: "D:/datos/europa/processed" # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato PASTIS
 patch_size: 256 
-grid_padding: 1 
+grid_padding: 0 
 verbose: False
 user: "f.maldonado@ug.uchile.cl"
 password: ""
