@@ -104,6 +104,10 @@ def process_tile(
     '''
     start = time.time()
     print(f"Formateando tile {tile_name}...")
+<<<<<<< HEAD
+=======
+    sentinel_crs =  get_crs(s2_path.rglob(f"*{tile_name}*"))
+>>>>>>> origin/master
 
     if verbose: print(f"\tReconociendo crs...")
     sentinel_crs = get_crs(
@@ -134,12 +138,40 @@ def process_tile(
     array_size = 10980
     patch_size = 256
     final_n = (array_size//patch_size + 1)**2
+    processed_ids = {
+        int(f.stem.split("_")[1])  # extrae número del nombre tipo S2_00023.npy
+        for f in s2_out_path.glob("S2_*.npy")
+    }
     for patch_n in range(0, final_n):
+<<<<<<< HEAD
         patch = Patch(tile_name, patch_n)
         if verbose: print(f"\tFormateando patch {patch.patch_n} (id={patch.get_id()})...")
 
         patch.create_tensor(
             paths.in_s2.glob(f"*{tile_name}*"),
+=======
+        id = get_id(tile_name, patch_n)
+
+        if id in processed_ids:
+            if verbose:
+                print(f"Patch {patch_n} (id={id}) ya existe, se omite.")
+            continue
+        if verbose: print(f"\tFormateando patch {patch_n} (id={id})...")
+
+        time_series_tensor, raster_data = create_patch_tensor_rasterio(
+            products_paths = [
+                p for p in s2_path.rglob(f"S2?_MSIL2A_*{tile_name}*")
+                if p.is_dir() and p.parent.parent.name == tile_name
+            ],
+            patch_n=patch_n,
+            patch_size=patch_size,
+            padding=grid_padding,
+        )
+        # Crear el raster de etiquetado
+        annotation_raster = get_annotation_raster(
+                raster_data, 
+                labels_gdf
+>>>>>>> origin/master
         )
         patch.create_annotation_raster(labels_gdf)
 
@@ -175,11 +207,16 @@ def process_tile(
           (end-start)/60, "m")
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/master
 @hydra.main(version_base=None, config_path="../../configs/preprocessing", config_name="patches_S2")
 def main(cfg: DictConfig):
 
     # se definen las direcciones de los archivos a trabajar
     in_path = Path(cfg.in_path) # dirección del directorio con los datos a procesar.
+<<<<<<< HEAD
     out_path = Path(cfg.out_path) # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato de https://huggingface.co/datasets/IGNF/PASTIS-HD/tree/main.
     paths = RequiredPaths(
         in_s2 = in_path / "products",
@@ -188,6 +225,26 @@ def main(cfg: DictConfig):
         out_metadata = out_path / "metadata.geojson", 
         out_s2 = out_path / "DATA_S2", 
         out_annotations = out_path / "ANNOTATIONS", 
+=======
+    s2_path = in_path 
+    labels_path = in_path / "gsa_2022_selectedtiles.gpkg"
+    print(labels_path)
+    assert labels_path.exists(), "No existe archivo con labels"
+
+    out_path = Path(cfg.out_path) # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato de https://huggingface.co/datasets/IGNF/PASTIS-HD/tree/main.
+    metadata_path = out_path / f"metadata_{cfg.tile}.geojson" #dirección de la metadata producida en el procesamiento.
+    s2_out_path = out_path / "DATA_S2" #dirección de los tensores de imágenes 4D producidos.
+    annotations_out_path = out_path / "ANNOTATIONS" #dirección de las matrices 2D con los labels producidos.
+    for path in [s2_out_path, annotations_out_path]:
+        if not path.exists(): os.makedirs(path)
+
+    # definición mapeo hcat4_code -> crop label class
+    class_mapping_path = in_path / "class_mapping.csv"
+    class_mapping = (
+        pd.read_csv(class_mapping_path, index_col=0)
+        .iloc[:,0]
+        .to_dict()
+>>>>>>> origin/master
     )
 
     process_tile(
