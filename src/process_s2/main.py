@@ -30,16 +30,19 @@ class RequiredPaths:
         self,
         in_s2: Path,
         in_labels: Path,
+        in_class_mapping: Path,
         out_metadata: Path, # dirección de la metadata producida en el procesamiento.
         out_s2: Path,  # dirección de los tensores de imágenes 4D producidos.
         out_annotations: Path,  # dirección de las matrices 2D con los labels producidos.
     ):
         self.in_s2 = in_s2
         self.in_labels = in_labels
+        self.in_class_mapping = in_class_mapping
         self.out_metadata = out_metadata
         self.out_s2 = out_s2
         self.out_annotations = out_annotations
         assert in_labels.exists(), "No existe archivo con labels"
+        assert in_class_mapping.exists(), "No existe diccionario de clases de cultivo"
         if not out_s2.exists(): os.makedirs(out_s2)
         if not out_annotations.exists(): os.makedirs(out_annotations)
 
@@ -89,7 +92,6 @@ def update_metadata_file(new_rows, path, crs):
 
 def process_tile(
     tile_name: str,
-    class_mapping: dict,
     paths: RequiredPaths,
     patch_size: int,
     grid_padding: int,
@@ -109,6 +111,13 @@ def process_tile(
     )
 
     # Parcelas en tile
+    
+    class_mapping = ( # definición mapeo hcat4_code -> crop label class
+        pd.read_csv(paths.in_class_mapping, index_col=0)
+        .iloc[:, 0]
+        .to_dict()
+    )
+
     labels_gdf = (
         gpd.read_file(
             paths.in_labels,
@@ -166,7 +175,7 @@ def process_tile(
           (end-start)/60, "m")
 
 
-@hydra.main(version_base=None, config_path="../../configs/download", config_name="patches_S2")
+@hydra.main(version_base=None, config_path="../../configs/preprocessing", config_name="patches_S2")
 def main(cfg: DictConfig):
 
     # se definen las direcciones de los archivos a trabajar
@@ -175,21 +184,14 @@ def main(cfg: DictConfig):
     paths = RequiredPaths(
         in_s2 = in_path / "products",
         in_labels = in_path / "gsa_2022_selectedtiles.gpkg",
+        in_class_mapping = in_path / "class_mapping.csv",
         out_metadata = out_path / "metadata.geojson", 
         out_s2 = out_path / "DATA_S2", 
         out_annotations = out_path / "ANNOTATIONS", 
     )
 
-    # definición mapeo hcat4_code -> crop label class
-    class_mapping = (
-        pd.read_csv("class_mapping.csv", index_col=0)
-        .iloc[:, 0]
-        .to_dict()
-    )
-
     process_tile(
         tile_name=cfg.tile,
-        class_mapping=class_mapping,
         paths=paths,
         patch_size=cfg.patch_size,
         grid_padding=cfg.grid_padding,

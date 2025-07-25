@@ -1,3 +1,4 @@
+.gitignore
 **/__pycache__/
 *.egg-info
 
@@ -5,6 +6,8 @@
 
 multirun/
 
+vevn
+.venv
 logs/
 jupyter/
 work-dir/
