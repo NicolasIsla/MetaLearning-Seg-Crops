@@ -139,7 +139,7 @@ def process_tile(
     for patch_n in range(0, final_n):
         patch = Patch(tile_name, patch_n)
         if patch.get_id() in processed_ids:
-            if verbose: print(f"Patch {patch_n} (id={id}) ya existe, se omite.")
+            if verbose: print(f"Patch {patch.patch_n} (id={patch.get_id()}) ya existe, se omite.")
             continue
         if verbose: print(f"\tFormateando patch {patch.patch_n} (id={patch.get_id()})...")
 
