@@ -1,0 +1,6 @@
+# Development settings
+INPUT_DATA_PATH=../../data
+OUTPUT_DATA_PATH=data
+PATCH_SIZE=256
+GRID_PADDING=0
+VERBOSE=True

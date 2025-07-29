@@ -1,25 +1,12 @@
-'''
-El siguiente es el script utilizado para el procesamiento de las imágenes 
-satelitales Sentinel S2 en conjunto con los polígonos de parcelas de cultivos,
-para formar tensores (band, time, x, y) con la agregación de productos Sentinel 2
-en parches de 256x256 y matrices (x,y) con las anotaciones de cultivos asociadas
-a la ubicación geográfica.
-
-Utiliza las funciones definidas en el archivo aux_functions.py
-
-Loopea a través de los tiles encontrados en `s2_path` y para cada tile
-genera todos los patches de 256x256 asociados, guardando la metadata actualzada
-cada 5 patches generados.
-'''
 import os
+from dotenv import load_dotenv
 from pathlib import Path
 import time
 import numpy as np
 import pandas as pd
 import rasterio
 import geopandas as gpd
-import hydra
-from omegaconf import DictConfig
+import json
 
 from patch import Patch
 from product_path import ProductPath
@@ -52,7 +39,7 @@ def get_crs(products_paths):
     Loopea en todos los productos buscando crs.
     Se asegura de que el crs exista y sea consistente.
 
-    Según lo explorado no todas los productos tienen crs, pero basta con que
+    Según lo explorado no todas los productos tienen crs, pero basta con que 
     alguno lo tenga y que los que tengan, tengan el mismo.
     '''
     crs_arr = []
@@ -90,8 +77,9 @@ def update_metadata_file(new_rows, path, crs):
         text_file.write(metadata_gdf.to_json())
 
 
-def process_tile(
+def process_missing_patches(
     tile_name: str,
+    patches_list: list,
     paths: RequiredPaths,
     patch_size: int,
     grid_padding: int,
@@ -106,12 +94,10 @@ def process_tile(
     print(f"Formateando tile {tile_name}...")
 
     if verbose: print(f"\tReconociendo crs...")
-    sentinel_crs = get_crs(
-        products_paths=[
-            p for p in paths.in_s2.rglob(f"S2?_MSIL2A_*{tile_name}*")
-            if p.is_dir() and p.parent.parent.name == tile_name
-        ],
-    )
+    sentinel_crs = get_crs([
+        p for p in paths.in_s2.rglob(f"S2?_MSIL2A_*{tile_name}*")
+        if p.is_dir() and p.parent.parent.name == tile_name
+    ])
 
     # Parcelas en tile
     class_mapping = ( # definición mapeo hcat4_code -> crop label class
@@ -135,15 +121,8 @@ def process_tile(
     array_size = 10980
     patch_size = 256
     final_n = (array_size//patch_size + 1)**2
-    processed_ids = {
-        int(f.stem.split("_")[1])  # extrae número del nombre tipo S2_00023.npy
-        for f in paths.out_s2.glob("S2_*.npy")
-    }
-    for patch_n in range(0, final_n):
+    for patch_n in patches_list:
         patch = Patch(tile_name, patch_n)
-        if patch.get_id() in processed_ids:
-            if verbose: print(f"Patch {patch.patch_n} (id={patch.get_id()}) ya existe, se omite.")
-            continue
         if verbose: print(f"\tFormateando patch {patch.patch_n} (id={patch.get_id()})...")
 
         patch.create_tensor(
@@ -154,16 +133,7 @@ def process_tile(
             patch_size=patch_size,
             padding=grid_padding,
         )
-
         patch.create_annotation_raster(labels_gdf)
-
-        # Guardar resultados
-        patch.save_tensor(
-            paths.out_s2 / f"S2_{"{:05}".format(patch.get_id())}.npy"
-        )
-        patch.save_annotations(
-            paths.out_annotations / f"ParcelIDs_{"{:05}".format(patch.get_id())}.npy",
-        )
 
         metadata_rows.append(
             patch.get_metadata_row()
@@ -189,30 +159,33 @@ def process_tile(
           (end-start)/60, "m")
 
 
-@hydra.main(version_base=None, config_path="../../configs/preprocessing", config_name="patches_S2")
-def main(cfg: DictConfig):
-
-    # se definen las direcciones de los archivos a trabajar
-    in_path = Path(cfg.in_path) # dirección del directorio con los datos a procesar.
-    out_path = Path(cfg.out_path) # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato de https://huggingface.co/datasets/IGNF/PASTIS-HD/tree/main.
+def main():
+    load_dotenv()
+    in_path = Path(os.getenv("INPUT_DATA_PATH")) # dirección del directorio con los datos a procesar.
+    out_path = Path(os.getenv("OUTPUT_DATA_PATH")) # dirección del directorio donde se almacenarán los datos procesados siguiendo el formato de https://huggingface.co/datasets/IGNF/PASTIS-HD/tree/main.
     paths = RequiredPaths(
         in_s2 = in_path / "products",
         in_labels = in_path / "gsa_2022_selectedtiles.gpkg",
         in_class_mapping = in_path / "class_mapping.csv",
-        out_metadata = out_path / f"metadata_{cfg.tile}.geojson", 
+        out_metadata = out_path / "metadata.geojson", 
         out_s2 = out_path / "DATA_S2", 
         out_annotations = out_path / "ANNOTATIONS", 
     )
 
-    process_tile(
-        tile_name=cfg.tile,
-        paths=paths,
-        patch_size=cfg.patch_size,
-        grid_padding=cfg.grid_padding,
-        verbose=cfg.verbose,
-    )
+    with open("patches_faltantes.json", 'r') as file:
+        missing_patches = json.load(file)
+
+    for tile_name in missing_patches.keys():
+        patches_list = [int(patch_n) for patch_n in missing_patches[tile_name]]
+        process_missing_patches(
+            tile_name=tile_name,
+            patches_list=patches_list,
+            paths=paths,
+            patch_size=int(os.getenv("PATCH_SIZE")),
+            grid_padding=int(os.getenv("GRID_PADDING")),
+            verbose=bool(os.getenv("VERBOSE")),
+        )
 
 
 if __name__ == "__main__":
     main()
-
