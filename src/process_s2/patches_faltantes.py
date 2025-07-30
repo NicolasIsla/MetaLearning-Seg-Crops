@@ -118,9 +118,6 @@ def process_missing_patches(
     # Crear tensor con bandas y tiempo, en el patch n-ésimo
     count = 0
     metadata_rows = []
-    array_size = 10980
-    patch_size = 256
-    final_n = (array_size//patch_size + 1)**2
     for patch_n in patches_list:
         patch = Patch(tile_name, patch_n)
         if verbose: print(f"\tFormateando patch {patch.patch_n} (id={patch.get_id()})...")
