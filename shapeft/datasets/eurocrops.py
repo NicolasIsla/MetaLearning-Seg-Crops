@@ -94,9 +94,9 @@ class EuroCrops(RawGeoFMDataset):
         metadata_path = self.root_path / "metadata.geojson"
         annotations_path = self.root_path / "ANNOTATIONS"
         s2_path = self.root_path / "DATA_S2"
-        assert (metadata_path).exists(), f"metadata.geojson not found{metadata_path}"
-        assert (annotations_path).exists(), f"annotations directory not found{annotations_path}"
-        assert (s2_path).exists(), f"S2 directory not found{s2_path}"
+        assert metadata_path.exists(), f"metadata.geojson not found {metadata_path}"
+        assert annotations_path.exists(), f"annotations directory not found {annotations_path}"
+        assert s2_path.exists(), f"S2 directory not found{s2_path}"
 
         self.modalities = ["S2",]
         self.reference_date = pd.to_datetime(reference_date)
@@ -116,9 +116,9 @@ class EuroCrops(RawGeoFMDataset):
         split_patches = np.concat([
             split_by_tiles[self.split]
             for split_by_tiles in splits.values()
-            ])
+            ]).astype(int)
         self.meta_patch = self.meta_patch[
-            self.meta_patch.patch_n.isin(split_patches)
+            self.meta_patch.index.isin(split_patches)
         ]
         if cover > 0:
             self.meta_patch = self.meta_patch[
