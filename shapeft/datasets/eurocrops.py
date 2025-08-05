@@ -91,12 +91,19 @@ class EuroCrops(RawGeoFMDataset):
             raise Exception("Not recognized split argument")
 
         self.root_path = Path(root_path)
+        metadata_path = self.root_path / "metadata.geojson"
+        annotations_path = self.root_path / "ANNOTATIONS"
+        s2_path = self.root_path / "DATA_S2"
+        assert (metadata_path).exists(), f"metadata.geojson not found{metadata_path}"
+        assert (annotations_path).exists(), f"annotations directory not found{annotations_path}"
+        assert (s2_path).exists(), f"S2 directory not found{s2_path}"
+
         self.modalities = ["S2",]
         self.reference_date = pd.to_datetime(reference_date)
         # self.num_classes = 283
 
         self.meta_patch = (
-                gpd.read_file(self.root_path / "metadata.geojson")
+                gpd.read_file(metadata_path)
                 .astype({
                     "id": int,
                     "patch_n": int,
