@@ -3,11 +3,11 @@ work_dir: ""
 seed: 234
 use_wandb: false
 wandb_run_id: null
-wandb_project: "ShapingFT"
+wandb_project: "Utae-FuelMap-Classifier"
 
 # TRAINING
 num_workers: 4
-batch_size: 8
+batch_size: 2
 
 test_num_workers: 4
 test_batch_size: 1
