@@ -193,7 +193,7 @@ class FuelMap(RawGeoFMDataset):
         target_np = np.load(os.path.join(self.root_path, "ANNOTATIONS_class", f"{name}.npy"))
 
         # Convert to torch (recommended; if your pipeline expects numpy, remove these conversions)
-        target = torch.from_numpy(target_np).to(torch.float32)  # (4,H,W)
+        target = torch.from_numpy(target_np).to(torch.int64)
         # If mask_np is 1=invalid, 0=valid, convert to bool valid mask:
         # mask = (mask == 0)
 
